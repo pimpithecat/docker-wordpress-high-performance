@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# setup.sh - FINAL COMPLETE VERSION
+# setup.sh - FINAL COMPLETE VERSION WITH UID 82 FIXES
 # WordPress Multi-site Manager with Subdirectory Pattern + Incremental Mode
 # =============================================================================
 set -euo pipefail
@@ -93,18 +93,18 @@ upper(){ echo "$1" | tr '[:lower:]' '[:upper:]'; }
 # ---------- rollback system ----------
 perform_rollback() {
   err "Performing complete rollback..."
-  
+
   if [[ -f "$COMPOSE_FILE" ]]; then
     docker compose -f "$COMPOSE_FILE" down -v 2>/dev/null || true
   fi
-  
+
   for file in "${CREATED_FILES[@]}"; do
     if [[ -f "$file" ]]; then
       warn "Removing created file: $file"
       rm -f "$file"
     fi
   done
-  
+
   for ((idx=${#CREATED_DIRS[@]}-1 ; idx>=0 ; idx--)); do
     local dir="${CREATED_DIRS[idx]}"
     if [[ -d "$dir" ]]; then
@@ -116,12 +116,12 @@ perform_rollback() {
       fi
     fi
   done
-  
+
   if [[ -d "${DEPLOY_DIR}/ssl" ]]; then
     warn "Force removing ssl directory"
     sudo rm -rf "${DEPLOY_DIR}/ssl" 2>/dev/null || true
   fi
-  
+
   if [[ -d "$BACKUP_DIR" ]]; then
     for file in "${MODIFIED_FILES[@]}"; do
       local backup_file="${BACKUP_DIR}/$(basename "$file")"
@@ -131,11 +131,11 @@ perform_rollback() {
       fi
     done
   fi
-  
+
   if [[ -d "$BACKUP_DIR" ]]; then
     rm -rf "$BACKUP_DIR"
   fi
-  
+
   err "Rollback complete. All changes have been reverted."
 }
 
@@ -216,6 +216,7 @@ EOF
 
 # ---------- parse args ----------
 COMMAND=""
+ORIGINAL_ARGS=("$@")
 while [[ $# -gt 0 ]]; do
   case "$1" in
     init|add|remove|rm|list|ls|clean)
@@ -333,16 +334,16 @@ verify_docker_access() {
   log "Verifying Docker access..."
   if ! docker ps &>/dev/null 2>&1; then
     warn "Cannot access Docker daemon"
-    
+
     if ! groups | grep -q '\bdocker\b'; then
       warn "Adding user $USER to docker group..."
       sudo usermod -aG docker "$USER"
       log "✓ User added to docker group"
     fi
-    
+
     if command -v sg &>/dev/null; then
       log "Re-executing script with docker group permissions..."
-      exec sg docker -c "$0 $COMMAND $*"
+      exec sg docker -c "$0 ${ORIGINAL_ARGS[*]}"
     else
       err ""
       err "════════════════════════════════════════════════════"
@@ -357,7 +358,7 @@ verify_docker_access() {
       exit 1
     fi
   fi
-  
+
   log "✓ Docker access verified"
 }
 
@@ -395,39 +396,39 @@ system_checks() {
 # ---------- initialize base structure ----------
 init_base_structure() {
   log "Initializing base deployment structure..."
-  
+
   if [[ "${DRY_RUN}" == true ]]; then
     echo "[DRY] Would create deployment directories"
     return
   fi
-  
+
   # Create deployment directories
   safe_mkdir "$DEPLOY_DIR"
   safe_mkdir "$TARGET_NGINX_DIR"
   safe_mkdir "$TARGET_INCLUDES_DIR"
   safe_mkdir "$SITES_DIR"
   safe_mkdir "$(dirname "$DB_INIT")"
-  
+
   # Create secrets if missing
   if [[ ! -d "$SECRETS_DIR" ]]; then
     safe_mkdir "$SECRETS_DIR"
-    
+
     DB_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
     DB_ROOT_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
-    
+
     echo "$DB_PASSWORD" > "$SECRETS_DIR/db_password.txt"
     echo "$DB_ROOT_PASSWORD" > "$SECRETS_DIR/db_root_password.txt"
-    
+
     chmod 600 "$SECRETS_DIR"/*.txt
-    
+
     track_created_file "$SECRETS_DIR/db_password.txt"
     track_created_file "$SECRETS_DIR/db_root_password.txt"
-    
+
     log "✓ Generated database passwords"
   else
     log "✓ Secrets already exist"
   fi
-  
+
   # Create .env if missing
   if [[ ! -f "$ENV_FILE" ]]; then
     cat > "$ENV_FILE" <<EOF
@@ -440,7 +441,7 @@ EOF
   else
     log "✓ .env file already exists"
   fi
-  
+
   # Create init-databases.sql if missing
   if [[ ! -f "$DB_INIT" ]]; then
     cat > "$DB_INIT" <<EOF
@@ -452,7 +453,7 @@ EOF
   else
     log "✓ init-databases.sql already exists"
   fi
-  
+
   # Copy nginx.conf if missing
   NGINX_CONF_TARGET="${TARGET_NGINX_DIR}/nginx.conf"
   if [[ ! -f "$NGINX_CONF_TARGET" ]]; then
@@ -462,7 +463,7 @@ EOF
       log "✓ Copied nginx.conf"
     fi
   fi
-  
+
   # Copy SSL params if missing
   if [[ ! -f "$SSL_PARAMS_TARGET" ]]; then
     if [[ -f "$SSL_PARAMS_MASTER" ]]; then
@@ -471,7 +472,7 @@ EOF
       log "✓ Copied ssl-params.conf"
     fi
   fi
-  
+
   # Copy or create fastcgi-cache.conf if missing
   if [[ ! -f "$FASTCGI_TARGET" ]]; then
     if [[ -f "$FASTCGI_MASTER" ]]; then
@@ -494,7 +495,7 @@ EOF
       log "✓ Created minimal fastcgi-cache.conf"
     fi
   fi
-  
+
   log "✓ Base structure initialized"
 }
 
@@ -518,13 +519,16 @@ process_domain() {
 
   # 1) Create site directory
   if [[ "${DRY_RUN}" == false ]]; then
+    # Auto-clean if folder exists (from failed previous run)
+    if [[ -d "$SITE_DIR" ]]; then
+      sudo rm -rf "$SITE_DIR" 2>/dev/null || rm -rf "$SITE_DIR"
+    fi
     safe_mkdir "$SITE_DIR"
     safe_mkdir "$SITE_DIR/wordpress"
-    
     cp -a "${TEMPLATE_SITE}/Dockerfile" "$SITE_DIR/" || true
     cp -a "${TEMPLATE_SITE}/php.ini" "$SITE_DIR/" || true
     cp -a "${TEMPLATE_SITE}/www.conf" "$SITE_DIR/" || true
-    
+
     track_created_file "$SITE_DIR/Dockerfile"
     log "  ✓ Site directory created"
   fi
@@ -570,7 +574,7 @@ EOF
         -e "s/{{SHORT}}/${SHORT}/g" \
         -e "s/{{UPPER}}/${UPPER}/g" \
         "$TEMPLATE_NGINX" > "$NGINX_CONF"
-    
+
     track_created_file "$NGINX_CONF"
     log "  ✓ Nginx config created"
   fi
@@ -585,7 +589,7 @@ fastcgi_cache_path /var/cache/nginx/${SHORT}
     max_size=1g
     inactive=60m
     use_temp_path=off;"
-      
+
       if grep -q "{{CACHE_ZONES}}" "$FASTCGI_TARGET"; then
         awk -v block="$CACHE_BLOCK" '
           /{{CACHE_ZONES}}/ {
@@ -604,10 +608,10 @@ fastcgi_cache_path /var/cache/nginx/${SHORT}
   if [[ "${DRY_RUN}" == false ]]; then
     safe_mkdir "${SSL_DIR}"
     safe_mkdir "${SSL_DIR}/${DOMAIN}"
-    
+
     # Stop nginx for standalone certbot
     docker compose -f "$COMPOSE_FILE" stop nginx 2>/dev/null || true
-    
+
     info "  Requesting SSL certificate for ${DOMAIN}..."
     sudo certbot certonly --standalone \
       -d "${DOMAIN}" -d "www.${DOMAIN}" \
@@ -617,13 +621,13 @@ fastcgi_cache_path /var/cache/nginx/${SHORT}
         warn "  You may need to manually fix SSL later"
         return
     }
-    
+
     sudo mkdir -p "${SSL_DIR}/${DOMAIN}"
     sudo cp -L /etc/letsencrypt/live/"${DOMAIN}"/{fullchain.pem,privkey.pem,chain.pem} "${SSL_DIR}/${DOMAIN}/"
     sudo chmod -R 644 "${SSL_DIR}/${DOMAIN}"
     sudo chmod 600 "${SSL_DIR}/${DOMAIN}/privkey.pem"
     log "  ✓ SSL certificate issued"
-    
+
     # Restart nginx
     docker compose -f "$COMPOSE_FILE" up -d nginx 2>/dev/null || true
   fi
@@ -635,20 +639,23 @@ fastcgi_cache_path /var/cache/nginx/${SHORT}
     log "  ✓ Cron entry installed"
   fi
 
+  # ✅ Fix permission to match container (www-data UID 82)
+  sudo chown -R 82:82 "$SITE_DIR" 2>/dev/null || chown -R 82:82 "$SITE_DIR"
+
   log "  ✓ Finished processing ${DOMAIN}"
 }
 
 # ---------- generate docker-compose.yml ----------
 generate_docker_compose() {
   log "Generating docker-compose.yml..."
-  
+
   if [[ "${DRY_RUN}" == true ]]; then
     echo "[DRY] Would generate docker-compose.yml"
     return
   fi
-  
+
   backup_file "$COMPOSE_FILE"
-  
+
   # Start with base
   cat > "$COMPOSE_FILE" <<'COMPOSE_BASE'
 services:
@@ -682,7 +689,7 @@ NGINX_PORTS
     SHORT="${SITE_SHORTS[$i]}"
     DOMAIN="${SITE_DOMAINS[$i]}"
     VOLUME="${SITE_VOLUMES[$i]}"
-    
+
     cat >> "$COMPOSE_FILE" <<NGINX_VOLUMES
       - ./nginx/${DOMAIN}.conf:/etc/nginx/conf.d/${DOMAIN}.conf:ro
       - ./sites/${SHORT}/wordpress:/var/www/${SHORT}:ro
@@ -725,7 +732,7 @@ NGINX_END
     SHORT="${SITE_SHORTS[$i]}"
     DOMAIN="${SITE_DOMAINS[$i]}"
     DB_NAME="${SITE_DB_NAMES[$i]}"
-    
+
     cat >> "$COMPOSE_FILE" <<PHP_SERVICE
   php_${SHORT}:
     build:
@@ -827,7 +834,7 @@ cleanup_placeholders() {
 # ---------- cmd: init ----------
 cmd_init() {
   log "Initializing new deployment: ${DEPLOY_ENV}"
-  
+
   # Check if already exists
   if [[ -d "$DEPLOY_DIR" ]] && [[ -f "$COMPOSE_FILE" ]]; then
     detect_existing_sites
@@ -841,23 +848,23 @@ cmd_init() {
       fi
     fi
   fi
-  
+
   # Install dependencies
   install_docker_if_missing
   install_dependencies_if_missing
   verify_docker_access
   system_checks
-  
+
   # Initialize structure
   init_base_structure
-  
+
   # Ask for sites
   read -rp "How many sites to create? [1-10]: " TOTAL
   if ! [[ "$TOTAL" =~ ^[0-9]+$ ]] || [[ "$TOTAL" -lt 1 ]] || [[ "$TOTAL" -gt 10 ]]; then
     err "Invalid number. Must be between 1-10"
     exit 1
   fi
-  
+
   DOMAINS=()
   for ((i=1;i<=TOTAL;i++)); do
     while true; do
@@ -866,26 +873,26 @@ cmd_init() {
         warn "Domain cannot be empty"
         continue
       fi
-      
+
       if [[ " ${EXISTING_SITES[*]} " =~ " ${D} " ]]; then
         warn "Domain $D already exists!"
         continue
       fi
-      
+
       DOMAINS+=("$D")
       break
     done
   done
-  
+
   # Process all domains
   for DOMAIN in "${DOMAINS[@]}"; do
     process_domain "$DOMAIN"
   done
-  
+
   # Cleanup and generate compose
   cleanup_placeholders
   generate_docker_compose
-  
+
   # Start containers
   read -rp "Start containers now? [Y/n]: " start_now
   if [[ ! "$start_now" =~ ^[Nn]$ ]]; then
@@ -895,7 +902,10 @@ cmd_init() {
     docker compose up -d
     log "✓ Containers started"
   fi
-  
+
+  # ✅ Global permission fix for all sites
+  sudo chown -R 82:82 "${DEPLOY_DIR}/sites" 2>/dev/null || true
+
   log "✓ Initialization complete!"
   log ""
   log "Next steps:"
@@ -907,49 +917,60 @@ cmd_init() {
 # ---------- cmd: add ----------
 cmd_add() {
   local NEW_DOMAIN="$1"
-  
+
   if [[ -z "$NEW_DOMAIN" ]]; then
     err "Usage: $0 add <domain>"
     err "Example: $0 add example.com"
     exit 1
   fi
-  
+
   # Check deployment exists
   if [[ ! -d "$DEPLOY_DIR" ]] || [[ ! -f "$COMPOSE_FILE" ]]; then
     err "Deployment not found. Run '$0 init' first."
     exit 1
   fi
-  
+
   detect_existing_sites
-  
+
   # Check if already exists
   if [[ " ${EXISTING_SITES[*]} " =~ " ${NEW_DOMAIN} " ]]; then
     err "Site $NEW_DOMAIN already exists!"
     exit 1
   fi
-  
+
   log "Adding new site: $NEW_DOMAIN"
-  
+
   install_docker_if_missing
   install_dependencies_if_missing
   verify_docker_access
   system_checks
-  
+
+  # Load existing sites into arrays
+  for site in "${EXISTING_SITES[@]}"; do
+    SHORT=$(short_name "$site")
+    SITE_SHORTS+=("$SHORT")
+    SITE_DOMAINS+=("$site")
+    SITE_DB_NAMES+=("wp_$SHORT")
+    SITE_VOLUMES+=("cache_$SHORT")
+  done
+
   # Process the new domain
   process_domain "$NEW_DOMAIN"
-  
+
   # Regenerate docker-compose with new site
   cleanup_placeholders
   generate_docker_compose
-  
+
   # Build and start only new containers
   SHORT=$(short_name "$NEW_DOMAIN")
   log "Building new containers..."
   cd "$DEPLOY_DIR"
   docker compose build php_${SHORT}
-  docker compose up -d php_${SHORT} redis_${SHORT}
-  docker compose restart nginx
-  
+  docker compose up -d
+
+  # ✅ Global permission fix for all sites
+  sudo chown -R 82:82 "${DEPLOY_DIR}/sites" 2>/dev/null || true
+
   log "✓ Site $NEW_DOMAIN added successfully!"
   log "  Access at: https://$NEW_DOMAIN"
 }
@@ -960,32 +981,32 @@ cmd_list() {
     warn "No deployment found at: $DEPLOY_DIR"
     exit 0
   fi
-  
+
   detect_existing_sites
-  
+
   log "Deployment: ${DEPLOY_ENV}"
   log "Location: ${DEPLOY_DIR}"
   echo ""
-  
+
   if [[ ${#EXISTING_SITES[@]} -eq 0 ]]; then
     warn "No sites configured yet"
     log "Run '$0 init' to create your first site"
     exit 0
   fi
-  
+
   log "Configured sites: ${#EXISTING_SITES[@]}"
   echo ""
-  
+
   for site in "${EXISTING_SITES[@]}"; do
     SHORT=$(short_name "$site")
-    
+
     # Check container status
     if [[ -f "$COMPOSE_FILE" ]] && docker compose -f "$COMPOSE_FILE" ps php_${SHORT} 2>/dev/null | grep -q Up; then
       STATUS="${GREEN}running${NC}"
     else
       STATUS="${RED}stopped${NC}"
     fi
-    
+
     # Check SSL
     SSL_FILE="${SSL_DIR}/${site}/fullchain.pem"
     if [[ -f "$SSL_FILE" ]]; then
@@ -994,7 +1015,7 @@ cmd_list() {
     else
       SSL_STATUS="${RED}missing${NC}"
     fi
-    
+
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${GREEN}Site:${NC}     $site"
     echo -e "${GREEN}Status:${NC}   $STATUS"
@@ -1002,29 +1023,29 @@ cmd_list() {
     echo -e "${GREEN}SSL:${NC}      $SSL_STATUS"
     echo -e "${GREEN}Path:${NC}     ${SITES_DIR}/${SHORT}"
   done
-  
+
   echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 }
 
 # ---------- cmd: remove ----------
 cmd_remove() {
   local TARGET="$1"
-  
+
   if [[ -z "$TARGET" ]]; then
     err "Usage: $0 remove <domain|--all>"
     err "Example: $0 remove example.com"
     err "         $0 remove --all"
     exit 1
   fi
-  
+
   detect_existing_sites
-  
+
   if [[ "$TARGET" == "--all" ]]; then
     if [[ ${#EXISTING_SITES[@]} -eq 0 ]]; then
       warn "No sites to remove"
       exit 0
     fi
-    
+
     warn "This will remove ALL ${#EXISTING_SITES[@]} site(s):"
     for site in "${EXISTING_SITES[@]}"; do
       echo "  - $site"
@@ -1035,85 +1056,85 @@ cmd_remove() {
       log "Cancelled"
       exit 0
     fi
-    
+
     log "Stopping all containers..."
     cd "$DEPLOY_DIR"
     docker compose down -v
-    
+
     log "Removing all sites..."
     for site in "${EXISTING_SITES[@]}"; do
       SHORT=$(short_name "$site")
-      rm -rf "${SITES_DIR}/${SHORT}"
+      sudo rm -rf "${SITES_DIR}/${SHORT}" 2>/dev/null || rm -rf "${SITES_DIR}/${SHORT}"
       rm -f "${TARGET_NGINX_DIR}/${site}.conf"
       sudo rm -rf "${SSL_DIR}/${site}" 2>/dev/null || true
       sudo crontab -l 2>/dev/null | grep -v "$site" | sudo crontab - 2>/dev/null || true
     done
-    
+
     # Clear config files
     cat > "$ENV_FILE" <<EOF
 # WordPress Multi-site Configuration
 # Environment: ${DEPLOY_ENV}
 # Auto-generated by setup.sh
 EOF
-    
+
     cat > "$DB_INIT" <<EOF
 -- Auto-generated by setup.sh
 -- WordPress Multi-site Database Initialization
 EOF
-    
+
     log "✓ All sites removed"
     log "Run '$0 init' to create new sites"
     exit 0
   fi
-  
+
   # Remove specific site
   DOMAIN="$TARGET"
   SHORT=$(short_name "$DOMAIN")
-  
+
   if [[ ! " ${EXISTING_SITES[*]} " =~ " ${DOMAIN} " ]]; then
     err "Site $DOMAIN not found"
     err "Available sites: ${EXISTING_SITES[*]}"
     exit 1
   fi
-  
+
   warn "Removing site: $DOMAIN"
   read -rp "Continue? [y/N]: " confirm
   if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
     log "Cancelled"
     exit 0
   fi
-  
+
   log "Stopping containers for $DOMAIN..."
   cd "$DEPLOY_DIR"
   docker compose stop php_${SHORT} redis_${SHORT} 2>/dev/null || true
   docker compose rm -f php_${SHORT} redis_${SHORT} 2>/dev/null || true
-  
+
   log "Removing files..."
-  rm -rf "${SITES_DIR}/${SHORT}"
+  sudo rm -rf "${SITES_DIR}/${SHORT}" 2>/dev/null || rm -rf "${SITES_DIR}/${SHORT}"
   rm -f "${TARGET_NGINX_DIR}/${DOMAIN}.conf"
   sudo rm -rf "${SSL_DIR}/${DOMAIN}" 2>/dev/null || true
-  
+
   log "Updating configuration..."
   # Remove from .env
   sed -i "/SITE.*_DOMAIN=${DOMAIN}/d" "$ENV_FILE"
   sed -i "/SITE.*_DB_NAME=wp_${SHORT}/d" "$ENV_FILE"
-  
+
   # Remove from database init
   sed -i "/CREATE DATABASE IF NOT EXISTS wp_${SHORT}/,/FLUSH PRIVILEGES;/d" "$DB_INIT"
-  
+
   # Remove from fastcgi cache
   UPPER=$(upper "$SHORT")
   sed -i "/fastcgi_cache_path \/var\/cache\/nginx\/${SHORT}/,/use_temp_path=off;/d" "$FASTCGI_TARGET"
-  
+
   # Remove cron
   sudo crontab -l 2>/dev/null | grep -v "$DOMAIN" | sudo crontab - 2>/dev/null || true
-  
+
   # Rebuild remaining sites arrays
   SITE_SHORTS=()
   SITE_DOMAINS=()
   SITE_DB_NAMES=()
   SITE_VOLUMES=()
-  
+
   for site in "${EXISTING_SITES[@]}"; do
     if [[ "$site" != "$DOMAIN" ]]; then
       s=$(short_name "$site")
@@ -1123,17 +1144,17 @@ EOF
       SITE_VOLUMES+=("cache_$s")
     fi
   done
-  
+
   # Regenerate docker-compose
   if [[ ${#SITE_SHORTS[@]} -gt 0 ]]; then
     generate_docker_compose
+    docker compose down
     docker compose up -d
-    docker compose restart nginx
   else
     log "No sites remaining. Stopping all containers..."
     docker compose down -v
   fi
-  
+
   log "✓ Site $DOMAIN removed successfully"
 }
 
@@ -1143,9 +1164,9 @@ cmd_clean() {
     warn "No deployment found at: $DEPLOY_DIR"
     exit 0
   fi
-  
+
   detect_existing_sites
-  
+
   warn "This will completely remove the ${DEPLOY_ENV} deployment"
   if [[ ${#EXISTING_SITES[@]} -gt 0 ]]; then
     warn "Including ${#EXISTING_SITES[@]} site(s): ${EXISTING_SITES[*]}"
@@ -1156,21 +1177,21 @@ cmd_clean() {
     log "Cancelled"
     exit 0
   fi
-  
+
   if [[ -f "$COMPOSE_FILE" ]]; then
     log "Stopping containers..."
     cd "$DEPLOY_DIR"
     docker compose down -v 2>/dev/null || true
   fi
-  
+
   log "Removing deployment directory..."
   sudo rm -rf "$DEPLOY_DIR"
-  
+
   # Remove cron entries
   for site in "${EXISTING_SITES[@]}"; do
     sudo crontab -l 2>/dev/null | grep -v "$site" | sudo crontab - 2>/dev/null || true
   done
-  
+
   log "✓ Deployment cleaned"
   log "Run '$0 init' to create a new deployment"
 }

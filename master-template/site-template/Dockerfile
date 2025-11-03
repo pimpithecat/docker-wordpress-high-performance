@@ -31,7 +31,5 @@ RUN mkdir -p /var/log/php-fpm && chown -R www-data:www-data /var/log/php-fpm
 
 WORKDIR /var/www/html
 
-USER www-data
-
 EXPOSE 9000
 CMD ["php-fpm", "-F"]
