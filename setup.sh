@@ -255,6 +255,40 @@ install_dependencies_if_missing() {
 install_docker_if_missing
 install_dependencies_if_missing
 
+# ---------- verify docker access ----------  ← TAMBAH DI SINI (SETELAH INSTALL)
+log "Verifying Docker access..."
+if ! docker ps &>/dev/null 2>&1; then
+  warn "Cannot access Docker daemon"
+  
+  # Check if user is in docker group
+  if ! groups | grep -q '\bdocker\b'; then
+    warn "Adding user $USER to docker group..."
+    sudo usermod -aG docker "$USER"
+    log "✓ User added to docker group"
+  fi
+  
+  # Check if we can use sg docker
+  if command -v sg &>/dev/null; then
+    log "Re-executing script with docker group permissions..."
+    log "Running: sg docker -c \"$0 $*\""
+    exec sg docker -c "$0 $*"
+  else
+    err ""
+    err "════════════════════════════════════════════════════"
+    err "  Cannot auto-apply docker group permissions!"
+    err ""
+    err "  Please run ONE of these:"
+    err "    1. Logout and login again"
+    err "    2. Run: newgrp docker"
+    err "       Then: ./setup.sh"
+    err "════════════════════════════════════════════════════"
+    err ""
+    exit 1
+  fi
+fi
+
+log "✓ Docker access verified"
+
 # ---------- checks ----------
 log "Checking system prerequisites..."
 if [[ "${DRY_RUN}" == true ]]; then
