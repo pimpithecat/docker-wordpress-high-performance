@@ -1,0 +1,11 @@
+# ============================================
+# SSL Auto Renewal Template
+# ============================================
+# Placeholder: {{DOMAIN}}, {{SHORT}}
+# To be appended into crontab automatically
+# ============================================
+
+0 3 * * 0 certbot certonly --webroot \
+  -w /home/wp/wordpress-multi/site-{{SHORT}}/wordpress \
+  -d {{DOMAIN}} -d www.{{DOMAIN}} --quiet && \
+  docker compose -f /home/wp/wordpress-multi/docker-compose.yml restart nginx
