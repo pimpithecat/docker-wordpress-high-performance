@@ -1,0 +1,129 @@
+# High-Performance WordPress Docker
+
+**Automated multi-site WordPress deployment** with Nginx, PHP-FPM, MySQL 8, and Redis caching. One script to rule them all.
+
+## ⚡ Performance
+
+Tested on **Hetzner Cloud SG** (1 vCPU, 2 GB RAM):
+- **~17 req/s** sustained (1,000+ req/min)
+- **P95 latency: 2.5s** under 100 concurrent users
+- **71% success rate** at CPU saturation
+- **FastCGI + Redis** caching enabled
+- Optimal for **25-40 concurrent users** on single vCPU
+
+*Scale to 2+ vCPU for production workloads.*
+
+---
+
+## 🚀 Quick Start
+```bash
+git clone https://github.com/pimpithecat/high-performance-wordpress-docker.git
+cd high-performance-wordpress-docker
+chmod +x setup.sh
+./setup.sh init
+```
+
+Follow prompts to create your first site. SSL certificates generated automatically.
+
+---
+
+## 📋 Core Commands
+```bash
+./setup.sh add example.com         # Add site
+./setup.sh remove example.com      # Remove site + DB + cache
+./setup.sh list                    # Show all sites & status
+./setup.sh clean                   # Nuke everything
+```
+
+---
+
+## 🔧 Essential Operations
+
+### Cache Management
+```bash
+cd deployments/production
+
+# Clear all caches for a site
+docker compose exec nginx find /var/cache/nginx/sitename -type f -delete
+docker compose exec redis_sitename redis-cli FLUSHALL
+docker compose exec nginx nginx -s reload
+```
+
+### View Logs
+```bash
+docker compose logs -f                      # All services
+docker compose logs php_sitename --tail=50  # Specific site
+```
+
+### Database Access
+```bash
+cat secrets/db_password.txt                 # Show password
+docker compose exec db mysql -u wp_user -p$(cat secrets/db_password.txt)
+```
+
+### Restart Services
+```bash
+docker compose restart nginx
+docker compose restart php_sitename
+```
+
+---
+
+## 📁 Structure
+```
+master-template/       # Templates (git tracked)
+  ├── nginx/
+  └── site-template/
+
+deployments/
+  └── production/      # Generated (gitignored)
+      ├── docker-compose.yml
+      ├── sites/
+      ├── ssl/
+      └── secrets/
+```
+
+---
+
+## 🆘 Quick Fixes
+
+**Permission denied?**
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+**Database error?**
+```bash
+# Recreate DB for site
+docker compose exec db mysql -u root -p$(cat secrets/db_root_password.txt) \
+  -e "CREATE DATABASE wp_sitename; GRANT ALL ON wp_sitename.* TO 'wp_user'@'%';"
+```
+
+**Redis not connecting?**
+```bash
+docker compose exec redis_sitename redis-cli ping  # Should return PONG
+```
+
+---
+
+## 🔐 Security
+
+- Auto-generated DB passwords (`secrets/`)
+- Let's Encrypt SSL with auto-renewal
+- Isolated Redis per site
+- Non-root containers (UID 82)
+
+---
+
+## 📦 Backup
+```bash
+cp -a high-performance-wordpress-docker high-performance-wordpress-docker-backup
+docker compose exec db mysqldump -u root -p$(cat secrets/db_root_password.txt) \
+  --all-databases > backup-$(date +%Y%m%d).sql
+```
+
+---
+
+**License:** MIT  
+**Author:** [@pimpithecat](https://github.com/pimpithecat)
