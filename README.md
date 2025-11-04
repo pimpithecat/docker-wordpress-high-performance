@@ -133,6 +133,15 @@ deployments/
 sudo usermod -aG docker $USER
 newgrp docker
 ```
+**Redirects to `/wp-admin/install.php` showing "Already installed" after fresh setup?**
+```bash
+# This is FastCGI cache serving stale installation page
+cd deployments/production
+docker compose exec nginx find /var/cache/nginx/sitename -type f -delete
+docker compose exec nginx nginx -s reload
+# Hard refresh browser (Ctrl+Shift+R or Cmd+Shift+R)
+```
+**Why?** FastCGI cached the WordPress installer page. Clearing cache fixes it.
 
 **Database error?**
 ```bash
