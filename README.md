@@ -17,9 +17,9 @@ Tested on **Hetzner Cloud SG** (1 vCPU, 2 GB RAM):
 
 ## 🚀 Quick Start
 ```bash
-git clone https://github.com/pimpithecat/high-performance-wordpress-docker.git
-cd high-performance-wordpress-docker
-chmod +x setup.sh
+git clone https://github.com/pimpithecat/docker-wordpress-high-performance.git
+cd docker-wordpress-high-performance
+sudo chmod +x ./setup.sh
 ```
 
 **⚠️ Cloudflare Users:** Disable proxy (gray cloud ☁️) before running setup. Re-enable orange cloud 🟠 after SSL certificates are issued.
@@ -35,9 +35,9 @@ Follow prompts to create your first site. SSL certificates generated automatical
 ```bash
 ./setup.sh add example.com         # Add new site
 ./setup.sh remove example.com      # Remove site + DB + cache
-./setup.sh remove --all            # Remove ALL sites
+./setup.sh remove --all            # Remove ALL sites (keep infrastructure)
 ./setup.sh list                    # Show all sites & status
-./setup.sh clean                   # Nuke everything
+./setup.sh clean                   # Nuke everything (full reset)
 ```
 
 ---
@@ -123,7 +123,7 @@ docker compose exec redis_sitename redis-cli ping  # Should return PONG
 
 ## 📦 Backup
 ```bash
-cp -a high-performance-wordpress-docker high-performance-wordpress-docker-backup
+cp -a docker-wordpress-high-performance docker-wordpress-high-performance-backup
 docker compose exec db mysqldump -u root -p$(cat secrets/db_root_password.txt) \
   --all-databases > backup-$(date +%Y%m%d).sql
 ```
