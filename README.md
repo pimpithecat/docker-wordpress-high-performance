@@ -33,8 +33,9 @@ Follow prompts to create your first site. SSL certificates generated automatical
 
 ## 📋 Core Commands
 ```bash
-./setup.sh add example.com         # Add site
+./setup.sh add example.com         # Add new site
 ./setup.sh remove example.com      # Remove site + DB + cache
+./setup.sh remove --all            # Remove ALL sites
 ./setup.sh list                    # Show all sites & status
 ./setup.sh clean                   # Nuke everything
 ```
