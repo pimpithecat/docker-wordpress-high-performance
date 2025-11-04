@@ -775,7 +775,7 @@ NGINX_PORTS
 
     cat >> "$COMPOSE_FILE" <<NGINX_VOLUMES
       - ./nginx/${DOMAIN}.conf:/etc/nginx/conf.d/${DOMAIN}.conf:ro
-      - ./sites/${SHORT}/wordpress:/var/www/${SHORT}:ro
+      - ./sites/${SHORT}/wordpress:/var/www/html:ro
       - ${VOLUME}:/var/cache/nginx/${SHORT}
 NGINX_VOLUMES
   done
