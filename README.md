@@ -29,6 +29,21 @@ sudo chmod +x ./setup.sh
 
 Follow prompts to create your first site. SSL certificates generated automatically.
 
+### After Installation
+
+1. **Access your WordPress site** at `https://yourdomain.com`
+2. Complete WordPress setup (site title, admin user, password)
+3. **Install Redis Object Cache plugin:**
+   - Go to **Plugins → Add New**
+   - Search for "**Redis Object Cache**"
+   - Install and activate
+4. **Enable Redis:**
+   - Go to **Settings → Redis**
+   - Click "**Enable Object Cache**"
+   - Verify status shows "**Connected**"
+
+✅ Your site is now fully optimized with FastCGI + Redis caching!
+
 ---
 
 ## 📦 What Gets Installed
