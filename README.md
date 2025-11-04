@@ -20,6 +20,10 @@ Tested on **Hetzner Cloud SG** (1 vCPU, 2 GB RAM):
 git clone https://github.com/pimpithecat/high-performance-wordpress-docker.git
 cd high-performance-wordpress-docker
 chmod +x setup.sh
+```
+
+**⚠️ Cloudflare Users:** Disable proxy (gray cloud ☁️) before running setup. Re-enable orange cloud 🟠 after SSL certificates are issued.
+```bash
 ./setup.sh init
 ```
 
