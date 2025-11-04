@@ -31,6 +31,27 @@ Follow prompts to create your first site. SSL certificates generated automatical
 
 ---
 
+## 📦 What Gets Installed
+
+The script **automatically checks and installs** missing dependencies:
+
+### Auto-installed if missing:
+- **Docker Engine** (latest from official Docker repository)
+- **Docker Compose Plugin** (v2)
+- **certbot** (Let's Encrypt SSL certificates)
+- **openssl** (password generation & SSL)
+- **wget** (WordPress download)
+
+### Auto-configured:
+- Adds current user to `docker` group (no sudo needed)
+- Creates deployment directory structure
+- Generates secure database passwords
+- Sets up SSL auto-renewal cron jobs
+
+**Already have them?** Script detects existing installations and skips automatically. ✅
+
+---
+
 ## 📋 Core Commands
 ```bash
 ./setup.sh add example.com         # Add new site
