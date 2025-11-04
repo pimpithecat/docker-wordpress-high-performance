@@ -5,13 +5,14 @@
 ## ⚡ Performance
 
 Tested on **Hetzner Cloud SG** (1 vCPU, 2 GB RAM):
-- **~17 req/s** sustained (1,000+ req/min)
-- **P95 latency: 2.5s** under 100 concurrent users
-- **71% success rate** at CPU saturation
-- **FastCGI + Redis** caching enabled
-- Optimal for **25-40 concurrent users** on single vCPU
 
-*Scale to 2+ vCPU for production workloads.*
+* **~95 req/s** sustained (≈5,700 req/min)
+* **P95 latency: 1.2s** under 350 concurrent users
+* **99.97% success rate**, minimal timeouts only
+* **FastCGI + Redis + OPcache** caching fully active
+* **Homepage load test** (10 random posts, ~7 with images shown on front page)
+* Tested using **k6 + Prometheus Remote Write** output
+* Optimal for **200–350 concurrent users** on a single vCPU
 
 ---
 
