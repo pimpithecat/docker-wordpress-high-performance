@@ -743,7 +743,7 @@ generate_docker_compose() {
   cat > "$COMPOSE_FILE" <<'COMPOSE_BASE'
 services:
   nginx:
-    image: nginx:latest
+    image: nginx:stable-alpine
     container_name: wp_nginx
 COMPOSE_BASE
 
